@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="origin">
-    <title>ULTIMATE CINEMA</title>
+    <title>CINEMA LEGENDS</title>
     <style>
-        :root { --bg: #0e0e0e; --panel: #161616; --accent: #e50914; --text: #eee; --gray: #333; }
+        :root { --bg: #0f0f0f; --panel: #1a1a1a; --accent: #ff6b00; --text: #eee; }
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
         /* Шапка */
         .header { 
-            background: var(--panel); padding: 15px 20px; border-bottom: 1px solid #222; 
+            background: var(--panel); padding: 15px 20px; border-bottom: 1px solid #333; 
             display: flex; gap: 20px; align-items: center; z-index: 100;
         }
         .logo { font-weight: 900; color: var(--accent); font-size: 18px; letter-spacing: 1px; white-space: nowrap; }
@@ -19,7 +19,7 @@
         /* Поиск */
         .search-box { position: relative; flex: 1; max-width: 600px; }
         input { 
-            width: 100%; background: #000; border: 1px solid var(--gray); color: #fff; 
+            width: 100%; background: #000; border: 1px solid #333; color: #fff; 
             padding: 12px 15px; border-radius: 6px; outline: none; font-size: 16px; box-sizing: border-box;
             transition: border-color 0.2s;
         }
@@ -43,31 +43,33 @@
         .meta { font-size: 12px; color: #888; }
 
         /* Переключатель источников */
-        .source-tabs { display: flex; gap: 5px; margin-left: auto; background: #000; padding: 3px; border-radius: 6px; border: 1px solid #333; }
+        .source-tabs { display: flex; gap: 5px; margin-left: auto; background: #000; padding: 3px; border-radius: 6px; border: 1px solid #333; flex-wrap: wrap; }
         .tab-btn {
-            background: transparent; border: none; color: #888; padding: 8px 15px; 
+            background: transparent; border: none; color: #888; padding: 8px 12px; 
             cursor: pointer; border-radius: 4px; font-weight: 600; font-size: 13px; transition: 0.2s;
         }
         .tab-btn:hover { color: #fff; }
         .tab-btn.active { background: #333; color: #fff; }
-        .tab-btn.highlight { color: var(--accent); }
+        /* Цвета для разных плееров */
+        .tab-btn[onclick*="collaps"].active { color: #00bcd4; }
+        .tab-btn[onclick*="kodik"].active { color: #ffeb3b; }
+        .tab-btn[onclick*="bazon"].active { color: #4caf50; }
 
         /* Экран */
         .screen { flex: 1; position: relative; background: #000; width: 100%; height: 100%; }
-        
-        /* Контейнеры для разных плееров */
         iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
         
         .placeholder {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             text-align: center; color: #444; pointer-events: none;
         }
+        .warning { color: #e50914; font-size: 12px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="logo">KINO.HUB</div>
+        <div class="logo">KINO.LEGEND</div>
         
         <div class="search-box">
             <input type="text" id="query" placeholder="Поиск фильма (TMDB)..." autocomplete="off">
@@ -76,37 +78,33 @@
 
         <div class="source-tabs">
             <button class="tab-btn active" onclick="setPlayer('collaps')">⚡ Collaps</button>
-            <button class="tab-btn" onclick="setPlayer('flixcdn')">🤖 FlixCDN</button>
+            <button class="tab-btn" onclick="setPlayer('kodik')">📺 Kodik</button>
+            <button class="tab-btn" onclick="setPlayer('bazon')">🟢 Bazon</button>
             <button class="tab-btn" onclick="setPlayer('ustore')">🦄 Ustore</button>
         </div>
     </div>
 
     <div class="screen">
-        <div class="placeholder" id="msg">Начните ввод названия...</div>
-
-        <iframe id="main-frame" src="" style="display:none;"></iframe>
-
-        <iframe id="flixcdn" src="" style="display:none;"></iframe>
+        <div class="placeholder" id="msg">
+            Moonwalk R.I.P. (2019)<br>
+            Используйте Collaps или Kodik
+        </div>
+        <iframe id="frame" src="" style="display:none;"></iframe>
     </div>
 
-    <script src="actualize.js"></script>
-
     <script>
-        const TMDB_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; // Публичный ключ
-        const BASE_FLIX_URL = 'https://player0.flixcdn.space/show';
-
-        let currentIds = { tmdb: null, imdb: null, kp: null };
+        const TMDB_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; 
+        
+        let currentImdbId = null;
         let currentMode = 'collaps';
         let debounceTimer;
 
         const input = document.getElementById('query');
         const dropdown = document.getElementById('results');
+        const frame = document.getElementById('frame');
         const msg = document.getElementById('msg');
-        
-        const frameMain = document.getElementById('main-frame');
-        const frameFlix = document.getElementById('flixcdn');
 
-        // --- 1. Поиск (TMDB) ---
+        // --- 1. Поиск ---
         input.addEventListener('input', () => {
             clearTimeout(debounceTimer);
             const val = input.value.trim();
@@ -143,84 +141,64 @@
             } catch (e) { dropdown.innerHTML = '<div style="padding:15px;color:red">Ошибка сети</div>'; }
         }
 
-        // --- 2. Получение данных ---
+        // --- 2. Получение ID ---
         async function loadMovie(tmdbId) {
             dropdown.style.display = 'none';
-            msg.innerText = "Загрузка...";
+            msg.innerHTML = "Получение ID...";
             
             try {
-                // Получаем IMDb ID
                 const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}`);
                 const data = await res.json();
                 
-                currentIds = {
-                    tmdb: tmdbId,
-                    imdb: data.imdb_id, // tt123456
-                    kp: null // TMDB не дает KP ID, но Collaps умеет искать по IMDb
-                };
-
-                updatePlayer();
+                if (data.imdb_id) {
+                    currentImdbId = data.imdb_id;
+                    updatePlayer();
+                } else {
+                    alert("У фильма нет IMDb ID, плееры могут не найти его.");
+                }
             } catch (e) { console.error(e); }
         }
 
-        // --- 3. Переключение источников ---
+        // --- 3. Переключение ---
         function setPlayer(mode) {
             currentMode = mode;
-            
-            // UI кнопок
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active'); // Трюк с event, если кликнули
+            event.target.classList.add('active');
             
-            // Если фильм уже выбран - обновляем плеер
-            if (currentIds.tmdb || currentIds.imdb) {
-                updatePlayer();
-            }
+            if (currentImdbId) updatePlayer();
         }
         
-        // --- 4. Логика плееров ---
+        // --- 4. Логика Плееров ---
         function updatePlayer() {
             msg.style.display = 'none';
-            const id = currentIds.imdb; // Используем IMDb ID как основной
+            frame.style.display = 'block';
+            const id = currentImdbId;
+            let url = "";
 
-            if (!id) {
-                alert("У фильма нет IMDb ID. Попробуйте другой фильм.");
-                return;
+            switch(currentMode) {
+                case 'collaps':
+                    // Самый надежный
+                    url = `https://api.strvid.ws/embed/movie/${id}`;
+                    break;
+                case 'kodik':
+                    // Лучший для аниме/сериалов. 
+                    // Kodik отлично понимает imdbID
+                    url = `https://kodik.info/find-player?imdbID=${id}`;
+                    break;
+                case 'bazon':
+                    // ВНИМАНИЕ: Bazon может не работать без регистрации домена
+                    // Используем общий эмбед
+                    url = `https://bazon.cc/embed?imdb=${id}`; 
+                    break;
+                case 'ustore':
+                    // Резерв
+                    url = `https://ustore.bz/embed/${id}`;
+                    break;
             }
 
-            // Сброс видимости
-            frameMain.style.display = 'none';
-            frameFlix.style.display = 'none';
-            frameMain.src = "";
-            frameFlix.src = ""; // Останавливаем старое видео
-
-            if (currentMode === 'collaps') {
-                // COLLAPS (Самый надежный)
-                frameMain.style.display = 'block';
-                frameMain.src = `https://api.strvid.ws/embed/movie/${id}`;
-                console.log("Loading Collaps:", frameMain.src);
-
-            } else if (currentMode === 'flixcdn') {
-                // FLIXCDN (Тот, что с защитой домена)
-                frameFlix.style.display = 'block';
-                // Формат: //player0.flixcdn.space/show/imdb/tt12345
-                frameFlix.src = `${BASE_FLIX_URL}/imdb/${id}`;
-                console.log("Loading FlixCDN:", frameFlix.src);
-
-            } else if (currentMode === 'ustore') {
-                // USTORE (Запасной)
-                frameMain.style.display = 'block';
-                frameMain.src = `https://ustore.bz/embed/${id}`;
-                console.log("Loading Ustore:", frameMain.src);
-            }
+            console.log(`Loading ${currentMode}:`, url);
+            frame.src = url;
         }
-
-        // Инит кликов для кнопок (чтобы класс active ставился корректно при первом клике)
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-            });
-        });
     </script>
 </body>
 </html>
