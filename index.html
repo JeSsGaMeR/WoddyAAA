@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="origin">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlixCDN Cinema</title>
+    <style>
+        :root { --bg: #0f0f0f; --panel: #1a1a1a; --accent: #00bcd4; --text: #fff; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* Хедер */
+        .header { 
+            background: var(--panel); padding: 15px 20px; border-bottom: 1px solid #333; 
+            display: flex; gap: 15px; align-items: center; z-index: 100;
+        }
+        .logo { font-weight: 900; color: var(--accent); font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Поиск */
+        .search-container { flex: 1; max-width: 600px; position: relative; }
+        input { 
+            width: 100%; padding: 12px; background: #000; border: 1px solid #333; 
+            color: #fff; border-radius: 6px; outline: none; font-size: 16px; box-sizing: border-box;
+        }
+        input:focus { border-color: var(--accent); }
+
+        /* Выпадашка результатов */
+        .dropdown {
+            position: absolute; top: 100%; left: 0; width: 100%;
+            background: #1a1a1a; border: 1px solid #333; border-top: none;
+            max-height: 500px; overflow-y: auto; display: none; z-index: 1000;
+        }
+        .item { 
+            display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #222; 
+            cursor: pointer; transition: 0.2s;
+        }
+        .item:hover { background: #333; }
+        .poster { width: 45px; height: 68px; background: #000; object-fit: cover; border-radius: 2px; }
+        .info { display: flex; flex-direction: column; justify-content: center; }
+        .title { font-weight: bold; font-size: 14px; }
+        .meta { font-size: 12px; color: #888; }
+
+        /* Область плеера */
+        .screen { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
+        
+        /* ВАЖНО: ID flixcdn согласно инструкции */
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        .placeholder { color: #555; text-align: center; }
+
+        /* Ручной ввод ID */
+        .manual-tools { margin-left: auto; display: flex; gap: 5px; }
+        .manual-input { width: 100px; padding: 8px; font-size: 13px; }
+        .btn { 
+            background: #333; color: #fff; border: 1px solid #444; 
+            padding: 0 15px; cursor: pointer; border-radius: 4px; 
+        }
+        .btn:hover { background: var(--accent); border-color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">FLIX.HUB</div>
+        
+        <div class="search-container">
+            <input type="text" id="query" placeholder="Название фильма..." autocomplete="off">
+            <div class="dropdown" id="results"></div>
+        </div>
+
+        <div class="manual-tools">
+            <input type="text" id="kpId" class="manual-input" placeholder="KP ID">
+            <button class="btn" onclick="playManual()">Play</button>
+        </div>
+    </div>
+
+    <div class="screen">
+        <div class="placeholder" id="msg">Воспользуйтесь поиском или введите KP ID</div>
+        
+        <iframe id="flixcdn" src="" allowfullscreen></iframe>
+    </div>
+
+    <script src="actualize.js"></script>
+
+    <script>
+        // === КОНФИГУРАЦИЯ ===
+        // Базовый домен из инструкции
+        const BASE_PLAYER_URL = 'https://player0.flixcdn.space/show'; 
+        
+        // API TMDB для красивого поиска (CORS-friendly)
+        const TMDB_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; 
+
+        const input = document.getElementById('query');
+        const dropdown = document.getElementById('results');
+        const iframe = document.getElementById('flixcdn');
+        const msg = document.getElementById('msg');
+        let debounceTimer;
+
+        // Скрываем iframe при старте
+        iframe.style.display = 'none';
+
+        // --- 1. Поиск через TMDB ---
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            const val = input.value.trim();
+            if (val.length < 2) { dropdown.style.display = 'none'; return; }
+            debounceTimer = setTimeout(() => searchTMDB(val), 400);
+        });
+
+        async function searchTMDB(query) {
+            dropdown.style.display = 'block';
+            dropdown.innerHTML = '<div style="padding:10px; color:#777">Поиск...</div>';
+
+            try {
+                const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                dropdown.innerHTML = '';
+                if (!data.results?.length) { dropdown.innerHTML = '<div style="padding:10px">Ничего не найдено</div>'; return; }
+
+                data.results.forEach(m => {
+                    const el = document.createElement('div');
+                    el.className = 'item';
+                    
+                    const poster = m.poster_path 
+                        ? `https://image.tmdb.org/t/p/w92${m.poster_path}` 
+                        : 'https://via.placeholder.com/45x68?text=NO';
+
+                    el.innerHTML = `
+                        <img src="${poster}" class="poster">
+                        <div class="info">
+                            <div class="title">${m.title}</div>
+                            <div class="meta">${m.release_date?.split('-')[0] || '----'} • Рейтинг: ${m.vote_average}</div>
+                        </div>
+                    `;
+                    el.onclick = () => loadMovie(m.id);
+                    dropdown.appendChild(el);
+                });
+            } catch (e) { dropdown.innerHTML = '<div style="padding:10px; color:red">Ошибка сети</div>'; }
+        }
+
+        // --- 2. Получение IMDb ID и запуск ---
+        // FlixCDN принимает {resource}/{id}. Лучше всего работает imdb или kinopoisk.
+        // TMDB отдает нам IMDb ID.
+        async function loadMovie(tmdbId) {
+            dropdown.style.display = 'none';
+            msg.innerText = "Загрузка плеера...";
+            
+            try {
+                const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}`);
+                const data = await res.json();
+
+                if (data.imdb_id) {
+                    playFlix('imdb', data.imdb_id);
+                } else {
+                    alert("У фильма нет IMDb ID, попробуйте найти по KP ID вручную.");
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // --- 3. Логика запуска FlixCDN ---
+        function playFlix(resource, id) {
+            // Формат согласно документации: //player0.flixcdn.space/show/{resource}/{id}
+            const url = `${BASE_PLAYER_URL}/${resource}/${id}`;
+            
+            console.log("Loading URL:", url);
+            
+            msg.style.display = 'none';
+            iframe.style.display = 'block';
+            iframe.src = url;
+            
+            // В этот момент actualize.js (если он подключен) увидит iframe с id="flixcdn"
+            // и проверит, доступен ли домен. Если нет - подменит.
+        }
+
+        // --- 4. Ручной ввод KP ID ---
+        function playManual() {
+            const val = document.getElementById('kpId').value.trim();
+            if (/^\d+$/.test(val)) {
+                playFlix('kinopoisk', val);
+            } else {
+                alert("Введите только цифры ID Кинопоиска");
+            }
+        }
+    </script>
+</body>
+  </html>
+  
