@@ -2,104 +2,111 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="referrer" content="origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlixCDN Cinema</title>
+    <meta name="referrer" content="origin">
+    <title>ULTIMATE CINEMA</title>
     <style>
-        :root { --bg: #0f0f0f; --panel: #1a1a1a; --accent: #00bcd4; --text: #fff; }
+        :root { --bg: #0e0e0e; --panel: #161616; --accent: #e50914; --text: #eee; --gray: #333; }
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-        /* Хедер */
+        /* Шапка */
         .header { 
-            background: var(--panel); padding: 15px 20px; border-bottom: 1px solid #333; 
-            display: flex; gap: 15px; align-items: center; z-index: 100;
+            background: var(--panel); padding: 15px 20px; border-bottom: 1px solid #222; 
+            display: flex; gap: 20px; align-items: center; z-index: 100;
         }
-        .logo { font-weight: 900; color: var(--accent); font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        .logo { font-weight: 900; color: var(--accent); font-size: 18px; letter-spacing: 1px; white-space: nowrap; }
 
         /* Поиск */
-        .search-container { flex: 1; max-width: 600px; position: relative; }
+        .search-box { position: relative; flex: 1; max-width: 600px; }
         input { 
-            width: 100%; padding: 12px; background: #000; border: 1px solid #333; 
-            color: #fff; border-radius: 6px; outline: none; font-size: 16px; box-sizing: border-box;
+            width: 100%; background: #000; border: 1px solid var(--gray); color: #fff; 
+            padding: 12px 15px; border-radius: 6px; outline: none; font-size: 16px; box-sizing: border-box;
+            transition: border-color 0.2s;
         }
         input:focus { border-color: var(--accent); }
 
         /* Выпадашка результатов */
         .dropdown {
-            position: absolute; top: 100%; left: 0; width: 100%;
-            background: #1a1a1a; border: 1px solid #333; border-top: none;
-            max-height: 500px; overflow-y: auto; display: none; z-index: 1000;
+            position: absolute; top: 105%; left: 0; width: 100%; 
+            background: #1a1a1a; border: 1px solid #333; border-radius: 6px;
+            max-height: 500px; overflow-y: auto; display: none; z-index: 200;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
         }
         .item { 
-            display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #222; 
+            display: flex; gap: 12px; padding: 10px; border-bottom: 1px solid #252525; 
             cursor: pointer; transition: 0.2s;
         }
         .item:hover { background: #333; }
-        .poster { width: 45px; height: 68px; background: #000; object-fit: cover; border-radius: 2px; }
+        .poster { width: 45px; height: 68px; object-fit: cover; border-radius: 3px; background: #000; }
         .info { display: flex; flex-direction: column; justify-content: center; }
         .title { font-weight: bold; font-size: 14px; }
         .meta { font-size: 12px; color: #888; }
 
-        /* Область плеера */
-        .screen { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; }
-        
-        /* ВАЖНО: ID flixcdn согласно инструкции */
-        iframe { width: 100%; height: 100%; border: none; }
-        
-        .placeholder { color: #555; text-align: center; }
-
-        /* Ручной ввод ID */
-        .manual-tools { margin-left: auto; display: flex; gap: 5px; }
-        .manual-input { width: 100px; padding: 8px; font-size: 13px; }
-        .btn { 
-            background: #333; color: #fff; border: 1px solid #444; 
-            padding: 0 15px; cursor: pointer; border-radius: 4px; 
+        /* Переключатель источников */
+        .source-tabs { display: flex; gap: 5px; margin-left: auto; background: #000; padding: 3px; border-radius: 6px; border: 1px solid #333; }
+        .tab-btn {
+            background: transparent; border: none; color: #888; padding: 8px 15px; 
+            cursor: pointer; border-radius: 4px; font-weight: 600; font-size: 13px; transition: 0.2s;
         }
-        .btn:hover { background: var(--accent); border-color: var(--accent); }
+        .tab-btn:hover { color: #fff; }
+        .tab-btn.active { background: #333; color: #fff; }
+        .tab-btn.highlight { color: var(--accent); }
+
+        /* Экран */
+        .screen { flex: 1; position: relative; background: #000; width: 100%; height: 100%; }
+        
+        /* Контейнеры для разных плееров */
+        iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
+        
+        .placeholder {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; color: #444; pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="logo">FLIX.HUB</div>
+        <div class="logo">KINO.HUB</div>
         
-        <div class="search-container">
-            <input type="text" id="query" placeholder="Название фильма..." autocomplete="off">
+        <div class="search-box">
+            <input type="text" id="query" placeholder="Поиск фильма (TMDB)..." autocomplete="off">
             <div class="dropdown" id="results"></div>
         </div>
 
-        <div class="manual-tools">
-            <input type="text" id="kpId" class="manual-input" placeholder="KP ID">
-            <button class="btn" onclick="playManual()">Play</button>
+        <div class="source-tabs">
+            <button class="tab-btn active" onclick="setPlayer('collaps')">⚡ Collaps</button>
+            <button class="tab-btn" onclick="setPlayer('flixcdn')">🤖 FlixCDN</button>
+            <button class="tab-btn" onclick="setPlayer('ustore')">🦄 Ustore</button>
         </div>
     </div>
 
     <div class="screen">
-        <div class="placeholder" id="msg">Воспользуйтесь поиском или введите KP ID</div>
-        
-        <iframe id="flixcdn" src="" allowfullscreen></iframe>
+        <div class="placeholder" id="msg">Начните ввод названия...</div>
+
+        <iframe id="main-frame" src="" style="display:none;"></iframe>
+
+        <iframe id="flixcdn" src="" style="display:none;"></iframe>
     </div>
 
     <script src="actualize.js"></script>
 
     <script>
-        // === КОНФИГУРАЦИЯ ===
-        // Базовый домен из инструкции
-        const BASE_PLAYER_URL = 'https://player0.flixcdn.space/show'; 
-        
-        // API TMDB для красивого поиска (CORS-friendly)
-        const TMDB_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; 
+        const TMDB_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; // Публичный ключ
+        const BASE_FLIX_URL = 'https://player0.flixcdn.space/show';
+
+        let currentIds = { tmdb: null, imdb: null, kp: null };
+        let currentMode = 'collaps';
+        let debounceTimer;
 
         const input = document.getElementById('query');
         const dropdown = document.getElementById('results');
-        const iframe = document.getElementById('flixcdn');
         const msg = document.getElementById('msg');
-        let debounceTimer;
+        
+        const frameMain = document.getElementById('main-frame');
+        const frameFlix = document.getElementById('flixcdn');
 
-        // Скрываем iframe при старте
-        iframe.style.display = 'none';
-
-        // --- 1. Поиск через TMDB ---
+        // --- 1. Поиск (TMDB) ---
         input.addEventListener('input', () => {
             clearTimeout(debounceTimer);
             const val = input.value.trim();
@@ -109,81 +116,111 @@
 
         async function searchTMDB(query) {
             dropdown.style.display = 'block';
-            dropdown.innerHTML = '<div style="padding:10px; color:#777">Поиск...</div>';
+            dropdown.innerHTML = '<div style="padding:15px;color:#777">Поиск...</div>';
 
             try {
-                const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`;
-                const res = await fetch(url);
+                const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}&language=ru-RU`);
                 const data = await res.json();
-
+                
                 dropdown.innerHTML = '';
-                if (!data.results?.length) { dropdown.innerHTML = '<div style="padding:10px">Ничего не найдено</div>'; return; }
+                if (!data.results?.length) { dropdown.innerHTML = '<div style="padding:15px">Ничего не найдено</div>'; return; }
 
                 data.results.forEach(m => {
                     const el = document.createElement('div');
                     el.className = 'item';
+                    const poster = m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : '';
                     
-                    const poster = m.poster_path 
-                        ? `https://image.tmdb.org/t/p/w92${m.poster_path}` 
-                        : 'https://via.placeholder.com/45x68?text=NO';
-
                     el.innerHTML = `
-                        <img src="${poster}" class="poster">
+                        <img src="${poster}" class="poster" onerror="this.style.display='none'">
                         <div class="info">
                             <div class="title">${m.title}</div>
-                            <div class="meta">${m.release_date?.split('-')[0] || '----'} • Рейтинг: ${m.vote_average}</div>
+                            <div class="meta">${m.release_date?.split('-')[0] || ''} • ${m.vote_average}</div>
                         </div>
                     `;
                     el.onclick = () => loadMovie(m.id);
                     dropdown.appendChild(el);
                 });
-            } catch (e) { dropdown.innerHTML = '<div style="padding:10px; color:red">Ошибка сети</div>'; }
+            } catch (e) { dropdown.innerHTML = '<div style="padding:15px;color:red">Ошибка сети</div>'; }
         }
 
-        // --- 2. Получение IMDb ID и запуск ---
-        // FlixCDN принимает {resource}/{id}. Лучше всего работает imdb или kinopoisk.
-        // TMDB отдает нам IMDb ID.
+        // --- 2. Получение данных ---
         async function loadMovie(tmdbId) {
             dropdown.style.display = 'none';
-            msg.innerText = "Загрузка плеера...";
+            msg.innerText = "Загрузка...";
             
             try {
+                // Получаем IMDb ID
                 const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}`);
                 const data = await res.json();
+                
+                currentIds = {
+                    tmdb: tmdbId,
+                    imdb: data.imdb_id, // tt123456
+                    kp: null // TMDB не дает KP ID, но Collaps умеет искать по IMDb
+                };
 
-                if (data.imdb_id) {
-                    playFlix('imdb', data.imdb_id);
-                } else {
-                    alert("У фильма нет IMDb ID, попробуйте найти по KP ID вручную.");
-                }
+                updatePlayer();
             } catch (e) { console.error(e); }
         }
 
-        // --- 3. Логика запуска FlixCDN ---
-        function playFlix(resource, id) {
-            // Формат согласно документации: //player0.flixcdn.space/show/{resource}/{id}
-            const url = `${BASE_PLAYER_URL}/${resource}/${id}`;
+        // --- 3. Переключение источников ---
+        function setPlayer(mode) {
+            currentMode = mode;
             
-            console.log("Loading URL:", url);
+            // UI кнопок
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active'); // Трюк с event, если кликнули
             
-            msg.style.display = 'none';
-            iframe.style.display = 'block';
-            iframe.src = url;
-            
-            // В этот момент actualize.js (если он подключен) увидит iframe с id="flixcdn"
-            // и проверит, доступен ли домен. Если нет - подменит.
-        }
-
-        // --- 4. Ручной ввод KP ID ---
-        function playManual() {
-            const val = document.getElementById('kpId').value.trim();
-            if (/^\d+$/.test(val)) {
-                playFlix('kinopoisk', val);
-            } else {
-                alert("Введите только цифры ID Кинопоиска");
+            // Если фильм уже выбран - обновляем плеер
+            if (currentIds.tmdb || currentIds.imdb) {
+                updatePlayer();
             }
         }
+        
+        // --- 4. Логика плееров ---
+        function updatePlayer() {
+            msg.style.display = 'none';
+            const id = currentIds.imdb; // Используем IMDb ID как основной
+
+            if (!id) {
+                alert("У фильма нет IMDb ID. Попробуйте другой фильм.");
+                return;
+            }
+
+            // Сброс видимости
+            frameMain.style.display = 'none';
+            frameFlix.style.display = 'none';
+            frameMain.src = "";
+            frameFlix.src = ""; // Останавливаем старое видео
+
+            if (currentMode === 'collaps') {
+                // COLLAPS (Самый надежный)
+                frameMain.style.display = 'block';
+                frameMain.src = `https://api.strvid.ws/embed/movie/${id}`;
+                console.log("Loading Collaps:", frameMain.src);
+
+            } else if (currentMode === 'flixcdn') {
+                // FLIXCDN (Тот, что с защитой домена)
+                frameFlix.style.display = 'block';
+                // Формат: //player0.flixcdn.space/show/imdb/tt12345
+                frameFlix.src = `${BASE_FLIX_URL}/imdb/${id}`;
+                console.log("Loading FlixCDN:", frameFlix.src);
+
+            } else if (currentMode === 'ustore') {
+                // USTORE (Запасной)
+                frameMain.style.display = 'block';
+                frameMain.src = `https://ustore.bz/embed/${id}`;
+                console.log("Loading Ustore:", frameMain.src);
+            }
+        }
+
+        // Инит кликов для кнопок (чтобы класс active ставился корректно при первом клике)
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+            });
+        });
     </script>
 </body>
-  </html>
-  
+</html>
