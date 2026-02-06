@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="origin">
-    <title>CINEMA MAX</title>
+    <title>CINEMA: KINOBD EDITION</title>
     <style>
-        :root { --bg: #0e0e0e; --panel: #181818; --accent: #e50914; --text: #f5f5f5; }
+        :root { --bg: #0e0e0e; --panel: #181818; --accent: #00bcd4; --text: #f5f5f5; }
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-        /* Верхняя панель */
+        /* Шапка */
         .header { 
             background: var(--panel); padding: 15px 20px; border-bottom: 1px solid #333; 
             display: flex; gap: 20px; align-items: center; z-index: 100;
@@ -42,7 +42,7 @@
         .title { font-weight: bold; font-size: 14px; }
         .meta { font-size: 12px; color: #888; }
 
-        /* Панель кнопок (скролл для мобильных) */
+        /* Панель кнопок */
         .source-tabs { 
             display: flex; gap: 8px; margin-left: auto; overflow-x: auto; 
             padding-bottom: 5px; max-width: 600px;
@@ -53,28 +53,31 @@
             transition: 0.2s; display: flex; align-items: center; gap: 5px;
         }
         .tab-btn:hover { color: #fff; background: #333; }
-        .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .tab-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
         
-        /* Стили для статусов кнопок */
         .dot { width: 6px; height: 6px; border-radius: 50%; background: #555; }
-        .tab-btn.active .dot { background: #fff; box-shadow: 0 0 5px #fff; }
+        .tab-btn.active .dot { background: #000; box-shadow: 0 0 5px #000; }
 
         /* Экран */
         .screen { flex: 1; position: relative; background: #000; width: 100%; height: 100%; }
-        
-        /* IFRAMES */
         iframe { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
         
         .placeholder {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             text-align: center; color: #444; pointer-events: none;
         }
+        
+        .status-msg {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 20px;
+            color: var(--accent); font-size: 12px; pointer-events: none; display: none;
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="logo">ALL.CINEMA</div>
+        <div class="logo">KINO.BD</div>
         
         <div class="search-box">
             <input type="text" id="query" placeholder="Поиск (TMDB)..." autocomplete="off">
@@ -83,6 +86,7 @@
 
         <div class="source-tabs">
             <button class="tab-btn active" onclick="setPlayer('collaps')"><div class="dot"></div> Collaps</button>
+            <button class="tab-btn" onclick="setPlayer('kinobd')"><div class="dot"></div> KinoBD</button>
             <button class="tab-btn" onclick="setPlayer('flixcdn')"><div class="dot"></div> FlixCDN</button>
             <button class="tab-btn" onclick="setPlayer('kodik')"><div class="dot"></div> Kodik</button>
             <button class="tab-btn" onclick="setPlayer('bazon')"><div class="dot"></div> Bazon</button>
@@ -96,6 +100,8 @@
         <iframe id="main-frame" src="" style="display:none;"></iframe>
 
         <iframe id="flixcdn" src="" style="display:none;"></iframe>
+        
+        <div class="status-msg" id="status">Загрузка...</div>
     </div>
 
     <script src="actualize.js"></script>
@@ -103,28 +109,28 @@
     <script>
         const TMDB_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; 
         
-        // Базовые ссылки
         const URLS = {
             collaps: (id) => `https://api.strvid.ws/embed/movie/${id}`,
             kodik: (id) => `https://kodik.info/find-player?imdbID=${id}`,
             bazon: (id) => `https://bazon.cc/embed?imdb=${id}`,
             ustore: (id) => `https://ustore.bz/embed/${id}`,
-            // FlixCDN обрабатывается отдельно
-            flixcdn_base: 'https://player0.flixcdn.space/show/imdb' 
+            flixcdn_base: 'https://player0.flixcdn.space/show/imdb'
         };
 
         let currentImdbId = null;
+        let currentTitle = null;
         let currentMode = 'collaps';
         let debounceTimer;
 
         const input = document.getElementById('query');
         const dropdown = document.getElementById('results');
         const msg = document.getElementById('msg');
+        const status = document.getElementById('status');
         
         const frameMain = document.getElementById('main-frame');
         const frameFlix = document.getElementById('flixcdn');
 
-        // --- 1. Поиск TMDB ---
+        // --- Поиск TMDB ---
         input.addEventListener('input', () => {
             clearTimeout(debounceTimer);
             const val = input.value.trim();
@@ -145,7 +151,6 @@
 
                 data.results.forEach(m => {
                     if (!m.poster_path && !m.overview) return;
-                    
                     const el = document.createElement('div');
                     el.className = 'item';
                     const poster = m.poster_path ? `https://image.tmdb.org/t/p/w92${m.poster_path}` : '';
@@ -157,63 +162,91 @@
                             <div class="meta">${m.release_date?.split('-')[0] || ''} • ${m.vote_average}</div>
                         </div>
                     `;
-                    el.onclick = () => loadMovie(m.id);
+                    el.onclick = () => loadMovie(m);
                     dropdown.appendChild(el);
                 });
             } catch (e) { dropdown.innerHTML = '<div style="padding:15px;color:red">Ошибка сети</div>'; }
         }
 
-        // --- 2. Получение ID ---
-        async function loadMovie(tmdbId) {
+        async function loadMovie(movie) {
             dropdown.style.display = 'none';
             msg.innerText = "Получение ссылок...";
+            currentTitle = movie.title;
             
             try {
-                // Получаем IMDb ID, так как он универсален для всех плееров
-                const res = await fetch(`https://api.themoviedb.org/3/movie/${tmdbId}?api_key=${TMDB_KEY}`);
+                const res = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}?api_key=${TMDB_KEY}`);
                 const data = await res.json();
                 
                 if (data.imdb_id) {
                     currentImdbId = data.imdb_id;
                     updatePlayer();
                 } else {
-                    alert("У фильма нет IMDb ID. Плееры могут не найти его.");
+                    alert("Нет IMDb ID.");
                 }
             } catch (e) { console.error(e); }
         }
 
-        // --- 3. Переключение ---
         function setPlayer(mode) {
             currentMode = mode;
-            
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active'); // Ставим active на нажатую кнопку
-            
+            event.target.classList.add('active');
             if (currentImdbId) updatePlayer();
         }
 
-        // --- 4. Обновление плеера ---
-        function updatePlayer() {
+        async function updatePlayer() {
             msg.style.display = 'none';
             const id = currentImdbId;
-
+            
             // Сброс
             frameMain.style.display = 'none';
-            frameMain.src = "";
             frameFlix.style.display = 'none';
+            frameMain.src = "";
             frameFlix.src = "";
+            status.style.display = 'none';
 
-            if (currentMode === 'flixcdn') {
-                // FLIXCDN (Особая обработка для скрипта)
+            console.log(`Switching to ${currentMode}...`);
+
+            if (currentMode === 'kinobd') {
+                // --- KINOBD API INTEGRATION ---
+                // Используем их API для поиска по IMDb ID
+                status.innerText = "Запрос к API KinoBD...";
+                status.style.display = 'block';
+
+                try {
+                    // Пробуем найти фильм по IMDb через их API
+                    const apiUrl = `https://kinobd.ru/api/films/search/imdb_id?q=${id}`;
+                    const res = await fetch(apiUrl);
+                    
+                    if (!res.ok) throw new Error('CORS or Network Error');
+                    
+                    const data = await res.json();
+                    
+                    if (data.data && data.data.length > 0) {
+                        // Если API вернуло данные, ищем ссылку на плеер или используем ID для страницы
+                        // Так как Swagger не показывает поле iframe, пробуем открыть их страницу плеера
+                        // Или предполагаем, что у них есть embed
+                        const filmId = data.data[0].id;
+                        // Эвристика: пробуем открыть плеер
+                        alert(`Найден фильм в базе KinoBD (ID: ${filmId}). Но API не отдает прямой Iframe. Перенаправляем на поиск...`);
+                        window.open(`https://kinobd.ru/search?q=${encodeURIComponent(currentTitle)}`, '_blank');
+                    } else {
+                        alert("KinoBD: Фильм не найден в их базе.");
+                    }
+                } catch (e) {
+                    // Если API заблокировано (CORS), открываем поиск у них на сайте
+                    console.error("KinoBD Error:", e);
+                    if(confirm("API KinoBD заблокировало запрос (CORS). Открыть поиск на их сайте в новой вкладке?")) {
+                        window.open(`https://kinobd.ru/search?q=${encodeURIComponent(currentTitle)}`, '_blank');
+                    }
+                }
+                status.style.display = 'none';
+
+            } else if (currentMode === 'flixcdn') {
                 frameFlix.style.display = 'block';
                 frameFlix.src = `${URLS.flixcdn_base}/${id}`;
-                console.log("Loading FlixCDN:", frameFlix.src);
             } else {
-                // Остальные (Collaps, Kodik, Bazon, Ustore)
                 frameMain.style.display = 'block';
-                const url = URLS[currentMode](id);
-                console.log(`Loading ${currentMode}:`, url);
-                frameMain.src = url;
+                frameMain.src = URLS[currentMode](id);
             }
         }
     </script>
